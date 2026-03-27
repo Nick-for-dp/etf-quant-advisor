@@ -1,0 +1,33 @@
+[project]
+name = "etf-quant-advisor"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "akshare>=1.18.37",
+    "alembic>=1.18.4",
+    "apscheduler>=3.11.2",
+    "beautifulsoup4>=4.14.3",
+    "numpy>=2.4.3",
+    "pandas>=3.0.1",
+    "psycopg>=3.3.3",
+    "psycopg-binary>=3.3.3",
+    "pydantic>=2.12.5",
+    "python-dateutil>=2.9.0.post0",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.3",
+    "sqlalchemy>=2.0.48",
+    "tenacity>=9.1.4",
+    "baostock>=0.8.9",
+    "exchange-calendars>=4.13.2",
+]
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+
+[dependency-groups]
+dev = [
+    "black>=26.3.0",
+    "pytest>=9.0.2",
+]

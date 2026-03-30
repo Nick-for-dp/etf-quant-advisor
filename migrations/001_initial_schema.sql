@@ -164,6 +164,11 @@ CREATE TABLE IF NOT EXISTS signals (
 CREATE TABLE IF NOT EXISTS signal_performance (
     id SERIAL PRIMARY KEY,
     signal_id INTEGER NOT NULL,
+    etf_code VARCHAR(8) NOT NULL,                 -- ETF代码，冗余存储便于查询
+
+    -- 追踪状态
+    hold_start_date DATE,                         -- 持仓开始日期（reference_price对应的日期）
+    performance_status VARCHAR(16) DEFAULT 'pending_init',  -- 追踪状态：pending_init/active/completed/expired
 
     -- 基准价格（信号生成时的价格）
     reference_price DECIMAL(12, 4),
@@ -175,9 +180,15 @@ CREATE TABLE IF NOT EXISTS signal_performance (
     return_10d DECIMAL(6, 4),               -- 10日收益
     return_20d DECIMAL(6, 4),               -- 20日收益
 
-    -- 极值追踪
+    -- 极值追踪（持仓后N日内的极值）
+    max_price_1d DECIMAL(12, 4),            -- 1日内最高价
+    min_price_1d DECIMAL(12, 4),            -- 1日内最低价
+    max_price_3d DECIMAL(12, 4),            -- 3日内最高价
+    min_price_3d DECIMAL(12, 4),            -- 3日内最低价
     max_price_5d DECIMAL(12, 4),            -- 5日内最高价
     min_price_5d DECIMAL(12, 4),            -- 5日内最低价
+    max_price_10d DECIMAL(12, 4),           -- 10日内最高价
+    min_price_10d DECIMAL(12, 4),           -- 10日内最低价
     max_price_20d DECIMAL(12, 4),           -- 20日内最高价
     min_price_20d DECIMAL(12, 4),           -- 20日内最低价
 
@@ -224,6 +235,10 @@ CREATE INDEX IF NOT EXISTS idx_signals_etf ON signals(etf_code);
 CREATE INDEX IF NOT EXISTS idx_signals_status ON signals(signal_status);      -- 更新为 signal_status
 CREATE INDEX IF NOT EXISTS idx_signals_generated ON signals(generated_at);
 CREATE INDEX IF NOT EXISTS idx_signals_etf_status ON signals(etf_code, signal_status); -- 更新为 signal_status
+
+-- 信号性能追踪索引
+CREATE INDEX IF NOT EXISTS idx_performance_status ON signal_performance(performance_status);
+CREATE INDEX IF NOT EXISTS idx_performance_etf_status ON signal_performance(etf_code, performance_status);
 
 -- -----------------------------------------------------------------------------
 -- 更新时间戳触发器

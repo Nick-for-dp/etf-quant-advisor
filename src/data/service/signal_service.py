@@ -8,6 +8,7 @@
     3. 调用策略判断买入/卖出条件
     4. 生成SignalModel
     5. 持久化到数据库
+    6. 为 BUY/SELL 信号创建 performance 记录
 """
 
 from datetime import date
@@ -24,6 +25,7 @@ from src.data.repository.etf_repo import ETFRepository
 from src.data.repository.quote_repo import QuoteRepository
 from src.data.repository.signal_repo import SignalRepository
 from src.data.service.indicator_service import IndicatorService
+from src.data.service.performance_service import PerformanceService
 from src.data.service.quote_service import QuoteService
 from src.strategy.right_side import (
     generate_buy_signal,
@@ -190,12 +192,18 @@ class SignalService:
         return signals
 
     @classmethod
-    def save_signal(cls, signal: SignalModel, db: Optional[Session] = None) -> int:
+    def save_signal(
+        cls,
+        signal: SignalModel,
+        db: Optional[Session] = None,
+        create_performance: bool = True,
+    ) -> int:
         """保存信号到数据库.
 
         Args:
             signal: 信号模型
             db: 数据库会话
+            create_performance: 是否创建 performance 记录（默认 True）
 
         Returns:
             信号ID
@@ -204,6 +212,17 @@ class SignalService:
             schema = signal.to_schema()
             session.add(schema)
             session.flush()
+
+            # 更新 signal.id（flush 后已有）
+            signal.id = schema.id
+
+            # 为 BUY/SELL 信号创建 performance 记录
+            if create_performance and signal.signal_type in ("BUY", "SELL"):
+                try:
+                    PerformanceService.create_performance_for_signal(session, signal)
+                except Exception as e:
+                    logger.error(f"创建 performance 记录失败: {e}")
+
             return schema.id
 
         if db is not None:
@@ -212,7 +231,7 @@ class SignalService:
             with db_session() as session:
                 signal_id = _save(session)
 
-        logger.info(f"信号已保存，ID: {signal_id}")
+        logger.info(f"信号已保存，ID: {signal_id}, 类型: {signal.signal_type}")
         return signal_id
 
     @classmethod

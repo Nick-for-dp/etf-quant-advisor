@@ -301,6 +301,38 @@ class Reporter:
 
         print("=" * 60 + "\n")
 
+    @classmethod
+    def print_evening_summary(cls, result: "EveningRunResult") -> None:
+        """打印 Evening Job 执行结果摘要到控制台.
+
+        Args:
+            result: 收盘后任务运行结果
+        """
+        print("\n" + "=" * 60)
+        print("ETF 信号性能追踪日报")
+        print("=" * 60)
+        print(f"信号日期: {result.signal_date}")
+        print(f"运行时间: {result.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"执行状态: {result.status.value}")
+
+        if result.end_time:
+            duration = (result.end_time - result.start_time).total_seconds()
+            print(f"总耗时: {duration:.1f} 秒")
+
+        print("-" * 60)
+        print(f"行情同步: {result.quotes_synced} 条")
+        print(f"性能初始化: {result.performances_init} 条")
+        print(f"性能更新: {result.performances_updated} 条")
+        print(f"信号完成: {result.performances_completed} 条")
+
+        if result.errors:
+            print("-" * 60)
+            print("错误信息:")
+            for error in result.errors:
+                print(f"  - {error}")
+
+        print("=" * 60 + "\n")
+
 
 if __name__ == "__main__":
     # 测试报告生成

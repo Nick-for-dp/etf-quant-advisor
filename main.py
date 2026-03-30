@@ -4,13 +4,23 @@ r"""ETF 量化交易顾问系统主入口.
 提供每日运行流程的命令行入口，支持外部调度工具调用。
 
 使用方式：
-    python main.py --run-now           # 立即执行一次
-    python main.py --run-now --force   # 强制执行（忽略时间检查）
-    python main.py --run-now --date 2026-03-26  # 指定目标日期
+    # Morning Job（开盘前，生成信号）
+    python main.py --morning
+    python main.py --morning --force   # 强制执行
+
+    # Evening Job（收盘后，更新性能追踪）
+    python main.py --evening
+    python main.py --evening --force   # 强制执行
+
+    # 兼容旧版（等同于 --morning）
+    python main.py --run-now
 
 外部调度示例（Windows Task Scheduler）：
-    # 每日 08:00 执行
-    python D:\projects\etf_quant_advisor\main.py --run-now
+    # 每日 08:00 执行 Morning Job
+    python D:\projects\etf_quant_advisor\main.py --morning
+
+    # 每日 15:30 执行 Evening Job
+    python D:\projects\etf_quant_advisor\main.py --evening
 """
 
 import argparse
@@ -18,6 +28,7 @@ import sys
 from datetime import date
 
 from src.core import DailyRunner, RunStatus
+from src.core.evening_runner import EveningRunner, EveningStatus
 from src.output.reporter import Reporter
 from src.utils import get_logger
 
@@ -28,17 +39,27 @@ logger = get_logger(__name__)
 def main():
     """主入口函数."""
     parser = argparse.ArgumentParser(
-        description="ETF 量化交易顾问系统 - 每日生成交易信号",
+        description="ETF 量化交易顾问系统 - 每日生成交易信号与性能追踪",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python main.py --run-now           # 立即执行一次（检查时间窗口）
-  python main.py --run-now --force   # 强制执行（忽略时间检查和非交易日检查）
-  python main.py --run-now --date 2026-03-26  # 指定目标日期
+  # Morning Job（开盘前）
+  python main.py --morning           # 生成信号
+  python main.py --morning --force   # 强制执行
+
+  # Evening Job（收盘后）
+  python main.py --evening           # 更新性能追踪
+  python main.py --evening --force   # 强制执行
+
+  # 兼容旧版
+  python main.py --run-now           # 等同于 --morning
 
 外部调度（Windows Task Scheduler）:
-  # 每日 08:00 执行
-  python D:\\projects\\etf_quant_advisor\\main.py --run-now
+  # 每日 08:00 执行 Morning Job
+  python D:\\projects\\etf_quant_advisor\\main.py --morning
+
+  # 每日 15:30 执行 Evening Job
+  python D:\\projects\\etf_quant_advisor\\main.py --evening
 
 报告输出:
   - 控制台: 实时显示执行进度和结果摘要
@@ -47,10 +68,21 @@ def main():
     )
 
     # 运行模式参数
-    parser.add_argument(
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--morning",
+        action="store_true",
+        help="开盘前任务（生成信号）",
+    )
+    mode_group.add_argument(
+        "--evening",
+        action="store_true",
+        help="收盘后任务（更新性能追踪）",
+    )
+    mode_group.add_argument(
         "--run-now",
         action="store_true",
-        help="立即执行一次",
+        help="[兼容旧版] 等同于 --morning",
     )
 
     # 可选参数
@@ -76,7 +108,7 @@ def main():
     args = parser.parse_args()
 
     # 检查是否指定了运行模式
-    if not args.run_now:
+    if not (args.morning or args.evening or args.run_now):
         parser.print_help()
         sys.exit(0)
 
@@ -90,8 +122,21 @@ def main():
                 print(f"错误: 无效的日期格式 '{args.date}'，请使用 YYYY-MM-DD 格式")
                 sys.exit(1)
 
-        # 执行运行流程
-        logger.info("启动 ETF 量化交易顾问系统")
+        # Evening Job
+        if args.evening:
+            logger.info("启动 Evening Job（收盘后性能追踪）")
+            result = EveningRunner.run(force=args.force)
+            Reporter.print_evening_summary(result)
+
+            if result.status == EveningStatus.SUCCESS:
+                sys.exit(0)
+            elif result.status == EveningStatus.SKIPPED:
+                sys.exit(0)
+            else:
+                sys.exit(1)
+
+        # Morning Job（或 --run-now 兼容旧版）
+        logger.info("启动 Morning Job（开盘前信号生成）")
 
         result = DailyRunner.run(
             force=args.force,

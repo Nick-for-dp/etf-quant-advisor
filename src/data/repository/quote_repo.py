@@ -4,7 +4,7 @@
 """
 
 from datetime import date
-from typing import List, Union
+from typing import List, Optional, Union
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -156,5 +156,75 @@ class QuoteRepository:
                 ETFQuote.trade_date <= end_date,
             )
             .order_by(ETFQuote.trade_date.asc())
+        )
+        return list(db.execute(stmt).scalars().all())
+
+    @classmethod
+    def get_quotes_by_date(
+        cls,
+        db: Session,
+        trade_date: date,
+        etf_codes: Optional[List[str]] = None,
+    ) -> List[ETFQuote]:
+        """获取指定日期的报价数据.
+
+        用于 Evening Job 获取当日收盘价。
+
+        Args:
+            db: 数据库会话
+            trade_date: 交易日期
+            etf_codes: ETF 代码列表，可选，不传则返回当日所有数据
+
+        Returns:
+            ETFQuote 列表
+
+        Example:
+            >>> with db_session() as db:
+            ...     quotes = QuoteRepository.get_quotes_by_date(
+            ...         db, date(2024, 1, 15), ["510300", "512000"]
+            ...     )
+        """
+        stmt = select(ETFQuote).where(ETFQuote.trade_date == trade_date)
+
+        if etf_codes:
+            stmt = stmt.where(ETFQuote.etf_code.in_(etf_codes))
+
+        return list(db.execute(stmt).scalars().all())
+
+    @classmethod
+    def get_quotes_between(
+        cls,
+        db: Session,
+        etf_codes: List[str],
+        start_date: date,
+        end_date: date,
+    ) -> List[ETFQuote]:
+        """批量获取多只 ETF 在日期范围内的报价.
+
+        用于 PerformanceService 批量获取持仓期间价格数据。
+
+        Args:
+            db: 数据库会话
+            etf_codes: ETF 代码列表
+            start_date: 开始日期
+            end_date: 结束日期
+
+        Returns:
+            ETFQuote 列表，按日期升序排列
+
+        Example:
+            >>> with db_session() as db:
+            ...     quotes = QuoteRepository.get_quotes_between(
+            ...         db, ["510300", "512000"], date(2024, 1, 1), date(2024, 1, 31)
+            ...     )
+        """
+        stmt = (
+            select(ETFQuote)
+            .where(
+                ETFQuote.etf_code.in_(etf_codes),
+                ETFQuote.trade_date >= start_date,
+                ETFQuote.trade_date <= end_date,
+            )
+            .order_by(ETFQuote.etf_code, ETFQuote.trade_date.asc())
         )
         return list(db.execute(stmt).scalars().all())

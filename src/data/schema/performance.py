@@ -3,12 +3,12 @@
 对应数据库表: signal_performance
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import (
-    Numeric, DateTime, ForeignKey, Integer, Boolean
+    Numeric, DateTime, ForeignKey, Integer, Boolean, String, Date
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,10 +29,13 @@ class SignalPerformance(Base):
     Attributes:
         id: 性能记录ID，主键
         signal_id: 关联信号ID
+        etf_code: ETF代码，冗余存储便于查询
+        hold_start_date: 持仓开始日期（reference_price对应的日期）
+        performance_status: 追踪状态（pending_init/active/completed/expired）
         reference_price: 信号基准价
         return_1d/3d/5d/10d/20d: 多周期收益
-        max_price_5d/20d: 期间最高价
-        min_price_5d/20d: 期间最低价
+        max_price_1d/3d/5d/10d/20d: 期间最高价
+        min_price_1d/3d/5d/10d/20d: 期间最低价
         hit_target: 是否触及目标价
         hit_target_days: 触及目标所需天数
         hit_stop_loss: 是否触及止损
@@ -52,6 +55,13 @@ class SignalPerformance(Base):
     signal_id: Mapped[int] = mapped_column(
         ForeignKey("signals.id", ondelete="CASCADE"), nullable=False
     )
+    etf_code: Mapped[str] = mapped_column(String(8), nullable=False)
+
+    # 追踪状态
+    hold_start_date: Mapped[Optional[date]] = mapped_column(Date)
+    performance_status: Mapped[str] = mapped_column(
+        String(16), default="pending_init"
+    )
 
     # 基准价格（信号生成时的价格）
     reference_price: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
@@ -63,9 +73,15 @@ class SignalPerformance(Base):
     return_10d: Mapped[Optional[float]] = mapped_column(Numeric(6, 4))
     return_20d: Mapped[Optional[float]] = mapped_column(Numeric(6, 4))
 
-    # 极值追踪
+    # 极值追踪（持仓后N日内的极值）
+    max_price_1d: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
+    min_price_1d: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
+    max_price_3d: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
+    min_price_3d: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
     max_price_5d: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
     min_price_5d: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
+    max_price_10d: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
+    min_price_10d: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
     max_price_20d: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
     min_price_20d: Mapped[Optional[float]] = mapped_column(Numeric(12, 4))
 
@@ -95,4 +111,4 @@ class SignalPerformance(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<SignalPerformance(signal_id={self.signal_id}, score={self.score})>"
+        return f"<SignalPerformance(signal_id={self.signal_id}, etf_code={self.etf_code}, status={self.performance_status})>"

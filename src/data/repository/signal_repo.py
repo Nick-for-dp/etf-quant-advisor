@@ -58,6 +58,23 @@ class SignalRepository:
         return new_signal
 
     @classmethod
+    def get_signal_by_id(cls, db: Session, signal_id: int) -> Optional[Signal]:
+        """根据 ID 获取信号.
+
+        Args:
+            db: 数据库会话
+            signal_id: 信号 ID
+
+        Returns:
+            Signal 实例，不存在则返回 None
+
+        Example:
+            >>> with db_session() as db:
+            ...     signal = SignalRepository.get_signal_by_id(db, 1)
+        """
+        return db.get(Signal, signal_id)
+
+    @classmethod
     def get_active_signals(cls, db: Session) -> List[Signal]:
         """获取当前有效信号列表.
 
